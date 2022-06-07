@@ -13,6 +13,11 @@ else()
     find_package(OpenGL REQUIRED)
 endif()
 
+add_subdirectory(${CMAKE_SOURCE_DIR}/contrib/freetype2)
+include_directories(${CMAKE_SOURCE_DIR}/contrib/freetype2/include)
+
+
+
 if(WIN32)
     add_subdirectory(${CMAKE_SOURCE_DIR}/contrib/glfw)
     include_directories(${CMAKE_SOURCE_DIR}/contrib/glfw/include)
@@ -28,6 +33,7 @@ add_definitions(-DPACKAGE_URL="")
 
 #not quite sure why ${CMAKE_INSTALL_PREFIX} resolves correctly, but ${DESTINATION} doesn't
 add_definitions(-DTEXTURE_DIR="${CMAKE_INSTALL_PREFIX}/share/twitch-news-ticker/textures/")
+add_definitions(-DFONT_DIR="${CMAKE_INSTALL_PREFIX}/share/twitch-news-ticker/font/")
 add_definitions(-DSHADER_DIR="${CMAKE_INSTALL_PREFIX}/share/twitch-news-ticker/shaders/")
 
 add_definitions(-DCMAKE_CONFIG)
@@ -36,5 +42,6 @@ add_definitions(-DCMAKE_CONFIG)
 
 add_subdirectory(src)
 
+install(DIRECTORY font/ DESTINATION share/twitch-news-ticker/font)
 install(DIRECTORY shaders/ DESTINATION share/twitch-news-ticker/shaders)
 install(DIRECTORY textures/ DESTINATION share/twitch-news-ticker/textures)

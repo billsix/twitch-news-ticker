@@ -27,8 +27,9 @@ endif()
 
 add_executable(twitch-news-ticker ${twitch-news-ticker_headers} ${twitch-news-ticker_source})
 
+
 if(WIN32)
-    target_link_libraries(twitch-news-ticker glfw opengl32 )
+    target_link_libraries(twitch-news-ticker glfw opengl32 freetype)
 else()
     target_link_libraries ( twitch-news-ticker
         PRIVATE
@@ -36,6 +37,7 @@ else()
         "-ldl"
         ${OPENGL_gl_LIBRARY}
         ${GLFW_LIBRARIES}
+        freetype
 )
 endif(WIN32)
 

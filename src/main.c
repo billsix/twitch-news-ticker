@@ -24,6 +24,8 @@
 
 #include "main.h"
 
+#include <ft2build.h>
+#include FT_FREETYPE_H
 
 #define GL_MATRIX_STACK_IMPLEMENTATION
 #include "gl-matrix-stack.h"
@@ -36,11 +38,10 @@ static GLuint textureID;
 
 static GLuint textureLoc;
 
-
 // show the nuklear GUIs or not.  pressing escape toggles
 // it
 bool guiEnable = true;
-  static int funLevel = 0; // can go up to 10
+static int funLevel = 0; // can go up to 10
 
 static void error_callback(int error, const char *description) {
   fprintf(stderr, "Error: %s\n", description);
@@ -54,6 +55,11 @@ static void key_callback(GLFWwindow *window, int key, int scancode, int action,
   }
 }
 
+const int news_window_width = 1920;
+const int news_window_height = 250;
+
+
+bool restart = false;
 
 
 void draw_fun_o_meter_window();
@@ -87,11 +93,10 @@ int main(int argc, char **argv) {
   }
 
   if (!(news_window =
-            glfwCreateWindow(1920, 250, "Breaking NEWS", NULL, NULL))) {
+        glfwCreateWindow(news_window_width, news_window_height, "Breaking NEWS", NULL, NULL))) {
     glfwTerminate();
     return -1;
   }
-
 
   glfwSetKeyCallback(control_window, key_callback);
 
@@ -117,8 +122,9 @@ int main(int argc, char **argv) {
     GL_DEBUG_ASSERT();
     glDepthFunc(GL_LEQUAL);
     GL_DEBUG_ASSERT();
-    glBlendEquation(GL_FUNC_ADD);
-    GL_DEBUG_ASSERT();
+
+
+    glEnable(GL_BLEND);
     glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
     GL_DEBUG_ASSERT();
   }
@@ -163,7 +169,6 @@ int main(int argc, char **argv) {
     /*set_style(ctx, THEME_DARK);*/
   }
 
-
   // The event loop.  Keep on truckin'.
   while (!glfwWindowShouldClose(control_window) &&
          !glfwWindowShouldClose(news_window)) {
@@ -193,7 +198,7 @@ int main(int argc, char **argv) {
           fprintf(stdout, "button pressed\n");
 
         if (nk_button_label(ctx, "Fun Level 0 "))
-          funLevel = 0;
+          restart = true;
         if (nk_button_label(ctx, "Fun Level 1 "))
           funLevel = 1;
         if (nk_button_label(ctx, "Fun Level 3 "))
@@ -204,7 +209,6 @@ int main(int argc, char **argv) {
           funLevel = 7;
         if (nk_button_label(ctx, "Fun Level 9 "))
           funLevel = 9;
-
 
         nk_layout_row_dynamic(ctx, 30, 2);
         if (nk_option_label(ctx, "easy", op == EASY))
@@ -316,11 +320,67 @@ int main(int argc, char **argv) {
   return 0;
 }
 
-static GLuint funometerProgramID;
+// for font loading
+struct character {
+  unsigned int TextureID; // ID handle of the glyph texture
+  int Size[2];            // Size of glyph
+  int Bearing[2];         // Offset from baseline to left/top of glyph
+  unsigned int Advance;   // Offset to advance to next glyph
+};
 
+struct character characters[128];
+
+static GLuint funometerProgramID;
+static GLuint fontProgramID;
+
+
+  void RenderText(const struct mat4_t *const matr, GLuint vao, GLuint vbo, char * text, float x, float y, float scale, float r, float g, float b)
+  {
+    // activate corresponding render state
+  glUseProgram(fontProgramID);
+  glUniform3f(glGetUniformLocation(fontProgramID, "textColor"), r,g,b);
+  glUniformMatrix4fv(glGetUniformLocation(fontProgramID, "projection"), 1, GL_FALSE, matr->m);
+
+  glActiveTexture(GL_TEXTURE0);
+  glBindVertexArray(vao);
+
+  for (int i = 0; ; i++)
+    {
+      if (text[i] == 0)
+        break;
+      struct character ch = characters[text[i]];
+
+      float xpos = x + ch.Bearing[0] * scale;
+      float ypos = y - (ch.Size[1] - ch.Bearing[1]) * scale;
+
+      float w = ch.Size[0] * scale;
+      float h = ch.Size[1] * scale;
+      // update VBO for each character
+      float vertices[6][4] = {
+        { xpos,     ypos + h,   0.0f, 0.0f },
+        { xpos,     ypos,       0.0f, 1.0f },
+        { xpos + w, ypos,       1.0f, 1.0f },
+
+        { xpos,     ypos + h,   0.0f, 0.0f },
+        { xpos + w, ypos,       1.0f, 1.0f },
+        { xpos + w, ypos + h,   1.0f, 0.0f }
+      };
+      // render glyph texture over quad
+      glBindTexture(GL_TEXTURE_2D, ch.TextureID);
+      // update content of VBO memory
+      glBindBuffer(GL_ARRAY_BUFFER, vbo);
+      glBufferSubData(GL_ARRAY_BUFFER, 0, sizeof(vertices), vertices);
+      glBindBuffer(GL_ARRAY_BUFFER, 0);
+      // render quad
+      glDrawArrays(GL_TRIANGLES, 0, 6);
+      // now advance cursors for next glyph (note that advance is number of 1/64 pixels)
+      x += (ch.Advance >> 6) * scale; // bitshift by 6 to get value in pixels (2^6 = 64)
+    }
+  glBindVertexArray(0);
+  glBindTexture(GL_TEXTURE_2D, 0);
+}
 
 void draw_fun_o_meter_window() {
-
 
   /* Make the window's context current */
   glfwMakeContextCurrent(news_window);
@@ -332,13 +392,10 @@ void draw_fun_o_meter_window() {
     glViewport(0, 0, width, height);
   }
 
-
-
   static GLfloat texture_vertices[] = {// triangle 1
-                                   -1.0, -1.0, 1.0, -1.00, -1.0, 1.0,
-                                   // triangle 2
-                                   1.0, 1.0, -1.0, 1.0, 1.0, -1.0};
-
+                                       -1.0, -1.0, 1.0, -1.00, -1.0, 1.0,
+                                       // triangle 2
+                                       1.0, 1.0, -1.0, 1.0, 1.0, -1.0};
 
   static bool firstExecution = true;
 
@@ -346,17 +403,112 @@ void draw_fun_o_meter_window() {
   static GLuint vertex_buffer;
   static GLuint mvpMatrixLoc;
 
+  static GLuint fontVAO;
+  static GLuint fontVBO;
+
 
   if (firstExecution) {
+    // load font
+    {
+      FT_Library ft;
+      if (FT_Init_FreeType(&ft)) {
+        printf("ERROR::FREETYPE: Could not init FreeType Library \n");
+        exit(1);
+      }
+
+      FT_Face face;
+      if (FT_New_Face(ft, FONT_DIR "TiroGurmukhi-Regular.ttf", 0, &face)) {
+        printf("ERROR::FREETYPE: Failed to load font\n");
+        exit(1);
+      }
+
+      FT_Set_Pixel_Sizes(face, 0, 64);
+
+      if (FT_Load_Char(face, 'X', FT_LOAD_RENDER)) {
+        printf("ERROR::FREETYTPE: Failed to load Glyph\n");
+        exit(1);
+      }
+
+
+      {
+        glPixelStorei(GL_UNPACK_ALIGNMENT, 1); // disable byte-alignment restriction
+
+        for (unsigned char c = 0; c < 128; c++)
+          {
+            // load character glyph
+              if (FT_Load_Char(face, c, FT_LOAD_RENDER))
+                {
+                  printf("ERROR::FREETYTPE: Failed to load Glyph\n");
+                  continue;
+                }
+              // generate texture
+              unsigned int texture;
+              glGenTextures(1, &texture);
+              glBindTexture(GL_TEXTURE_2D, texture);
+              glTexImage2D(
+                           GL_TEXTURE_2D,
+                           0,
+                           GL_RED,
+                           face->glyph->bitmap.width,
+                           face->glyph->bitmap.rows,
+                           0,
+                           GL_RED,
+                           GL_UNSIGNED_BYTE,
+                           face->glyph->bitmap.buffer
+                           );
+              // set texture options
+              glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);
+              glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
+              glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
+              glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
+              // now store character for later use
+
+              struct character character;
+              {
+                character.TextureID = texture;
+                character.Size[0] = face->glyph->bitmap.width;
+                character.Size[1] = face->glyph->bitmap.rows;
+                character.Bearing[0] = face->glyph->bitmap_left;
+                character.Bearing[1] =  face->glyph->bitmap_top;
+                character.Advance = face->glyph->advance.x;
+              }
+
+              characters[c] = character;
+          }
+      }
+
+
+
+
+
+      FT_Done_Face(face);
+      FT_Done_FreeType(ft);
+
+
+      // font VAO/VBO
+      {
+        glGenVertexArrays(1, &fontVAO);
+        glGenBuffers(1, &fontVBO);
+        glBindVertexArray(fontVAO);
+        glBindBuffer(GL_ARRAY_BUFFER, fontVBO);
+        glBufferData(GL_ARRAY_BUFFER, sizeof(float) * 6 * 4, NULL, GL_DYNAMIC_DRAW);
+        glEnableVertexAttribArray(0);
+        glVertexAttribPointer(0, 4, GL_FLOAT, GL_FALSE, 4 * sizeof(float), 0);
+        glBindBuffer(GL_ARRAY_BUFFER, 0);
+        glBindVertexArray(0);
+      }
+
+    }
 
     // load textures
     {
       int width, height, numberOf8BitComponentsPerPixel;
       unsigned char *breakingnews =
-        stbi_load(TEXTURE_DIR "breakingnews.png", &width, &height,
-                  &numberOf8BitComponentsPerPixel, 0);
+          stbi_load(TEXTURE_DIR "breakingnews.png", &width, &height,
+                    &numberOf8BitComponentsPerPixel, 0);
 
-      const GLuint mode = numberOf8BitComponentsPerPixel == 4 ? GL_RGBA : GL_RGB;
+      const GLuint mode =
+          numberOf8BitComponentsPerPixel == 4 ? GL_RGBA : GL_RGB;
 
       // Create one OpenGL texture
       {
@@ -392,8 +544,6 @@ void draw_fun_o_meter_window() {
       stbi_image_free(breakingnews);
     }
 
-
-
     glGenVertexArrays(1, &VAO);
     GL_DEBUG_ASSERT();
 
@@ -411,8 +561,8 @@ void draw_fun_o_meter_window() {
         glBindBuffer(GL_ARRAY_BUFFER, vertex_buffer);
         GL_DEBUG_ASSERT();
         // Give our vertices to OpenGL.
-        glBufferData(GL_ARRAY_BUFFER, sizeof(texture_vertices), texture_vertices,
-                     GL_STATIC_DRAW);
+        glBufferData(GL_ARRAY_BUFFER, sizeof(texture_vertices),
+                     texture_vertices, GL_STATIC_DRAW);
         GL_DEBUG_ASSERT();
       }
     }
@@ -433,24 +583,47 @@ void draw_fun_o_meter_window() {
     // load shaders
     {
 
-      GLuint vertexShaderID =
+      // for the window
+      {
+        GLuint vertexShaderID =
           compile_shader(GL_VERTEX_SHADER, SHADER_DIR "funometer.vert");
 
-      GLuint fragmentShaderID =
+        GLuint fragmentShaderID =
           compile_shader(GL_FRAGMENT_SHADER, SHADER_DIR "funometer.frag");
 
-      funometerProgramID = link_shaders(vertexShaderID, fragmentShaderID);
-      GL_DEBUG_ASSERT();
+        funometerProgramID = link_shaders(vertexShaderID, fragmentShaderID);
+        GL_DEBUG_ASSERT();
 
-      mvpMatrixLoc = glGetUniformLocation(funometerProgramID, "mvpMatrix");
-      GL_DEBUG_ASSERT();
-      textureLoc = glGetUniformLocation(funometerProgramID, "breakingNewsTexture");
+        mvpMatrixLoc = glGetUniformLocation(funometerProgramID, "mvpMatrix");
+        GL_DEBUG_ASSERT();
+        textureLoc =
+          glGetUniformLocation(funometerProgramID, "breakingNewsTexture");
 
-      // clean up
-      glDeleteShader(vertexShaderID);
-      GL_DEBUG_ASSERT();
-      glDeleteShader(fragmentShaderID);
-      GL_DEBUG_ASSERT();
+        // clean up
+        glDeleteShader(vertexShaderID);
+        GL_DEBUG_ASSERT();
+        glDeleteShader(fragmentShaderID);
+        GL_DEBUG_ASSERT();
+      }
+      // for the fonts
+      {
+        GLuint vertexShaderID =
+          compile_shader(GL_VERTEX_SHADER, SHADER_DIR "font.vert");
+
+        GLuint fragmentShaderID =
+          compile_shader(GL_FRAGMENT_SHADER, SHADER_DIR "font.frag");
+
+        fontProgramID = link_shaders(vertexShaderID, fragmentShaderID);
+        GL_DEBUG_ASSERT();
+
+
+        // clean up
+        glDeleteShader(vertexShaderID);
+        GL_DEBUG_ASSERT();
+        glDeleteShader(fragmentShaderID);
+        GL_DEBUG_ASSERT();
+
+      }
     }
 
     firstExecution = !firstExecution;
@@ -460,29 +633,26 @@ void draw_fun_o_meter_window() {
 
   // draw scene
   {
-
     glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
     glClearColor(0.0, 1.0, 0.0, 1.0);
 
-
-    // projection
+    // render chyron
     {
-      enum matrixType m = PROJECTION;
-      mat4_identity(m);
-    }
-    // view
-    {
-      enum matrixType m = VIEW;
-      mat4_identity(m);
-    }
-    // model
-    {
-      enum matrixType m = MODEL;
-      mat4_identity(m);
-    }
-
-
-
+      // projection
+      {
+        enum matrixType m = PROJECTION;
+        mat4_identity(m);
+      }
+      // view
+      {
+        enum matrixType m = VIEW;
+        mat4_identity(m);
+      }
+      // model
+      {
+        enum matrixType m = MODEL;
+        mat4_identity(m);
+      }
 
       glBindVertexArray(VAO);
       GL_DEBUG_ASSERT();
@@ -498,7 +668,6 @@ void draw_fun_o_meter_window() {
         mat4_scale(MODEL, s);
       }
 
-
       const struct mat4_t *const matr = mat4_get_matrix(MODELVIEWPROJECTION);
 
       glUniformMatrix4fv(mvpMatrixLoc, 1, GL_FALSE, matr->m);
@@ -511,17 +680,53 @@ void draw_fun_o_meter_window() {
       glBindTexture(GL_TEXTURE_2D, textureID);
       GL_DEBUG_ASSERT();
 
-
       static GLuint numVertices = ARRAY_SIZE(texture_vertices) / 2;
 
       // Draw the triangles !
       glDrawArrays(GL_TRIANGLES, 0, numVertices);
       GL_DEBUG_ASSERT();
+    glUseProgram(0);
+    glBindVertexArray(0);
+    }
+    // render text
+    {
+      // projection
+      {
+        enum matrixType m = PROJECTION;
+        mat4_ortho(0.0, news_window_width, 0.0, news_window_height, -100.0, 100.0);
+      }
+      // view
+      {
+        enum matrixType m = VIEW;
+        mat4_identity(m);
+      }
+      // model
+      {
+        enum matrixType m = MODEL;
+        mat4_identity(m);
+      }
 
+      const struct mat4_t *const matr = mat4_get_matrix(MODELVIEWPROJECTION);
+
+      glDisable(GL_DEPTH_TEST);
+      glEnable(GL_BLEND);
+      glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
+
+      // junk code
+      {
+        static int farRight = news_window_width / 2.0;
+        if (restart)
+          {
+            farRight = news_window_width / 2.0;
+            restart = false;
+          }
+        farRight-= 3;
+        RenderText(matr, fontVAO, fontVBO, "Pillow got Demoned", farRight, -20.0, 1.0, 0.0, 0.0, 0.0);
+      }
+      glEnable(GL_DEPTH_TEST);
+
+    }
   }
-  glUseProgram(0);
-  glBindVertexArray(0);
-
   glfwSwapBuffers(news_window);
 }
 #ifdef __cplusplus

@@ -248,7 +248,7 @@ static struct mat4_t ** private_mat4_get_matrix(enum matrixType m){
     return &view_matrix;
   case PROJECTION:
     return &projection_matrix;
-  case MODELVIEW: 
+  case MODELVIEW:
     private_mat4_multiply(modelview_matrix,
                           view_matrix,
                           model_matrix);
@@ -515,6 +515,35 @@ mat4_perspective(float fovy,
 #undef M
 
 }
+
+
+/*
+ * Make the projection matrix have the perspective projection
+ *
+ * http://www.songho.ca/opengl/gl_projectionmatrix.html
+ */
+
+void
+mat4_ortho(float left, float right, float back, float top, float near, float far){
+  const float dx = right - left;
+  const float dy = top - back;
+  const float dz = far - near;
+
+  const float rx = -(right + left) / (right - left) ;
+  const float ry = -(top + back) / (top - back);
+  const float rz = -(far + near) / (far - near);
+
+#define M(row, column) projection_matrix->m[((column-1)*4)+row-1]
+
+  M(1,1) = 2.0/dx;      M(1,2) = 0;          M(1,3) = 0;                          M(1,4) = 0;
+  M(2,1) = 0;           M(2,2) = 2.0/dy;     M(2,3) = 0;                          M(2,4) = 0;
+  M(3,1) = 0;           M(3,2) = 0;          M(3,3) = -2.0 / dz;                  M(3,4) = 0.0;
+  M(4,1) = 0;           M(4,2) = 0;          M(4,3) = 0.0;                         M(4,4) = 1.0;
+
+#undef M
+
+}
+
 
 
 
