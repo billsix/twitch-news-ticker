@@ -57,7 +57,7 @@ static void key_callback(GLFWwindow *window, int key, int scancode, int action,
 
 const int news_window_width = 1920;
 const int news_window_height = 250;
-
+int farRight = 1920.0 / 2.0;
 
 bool restart = false;
 
@@ -714,7 +714,6 @@ void draw_fun_o_meter_window() {
 
       // junk code
       {
-        static int farRight = news_window_width / 2.0;
         if (restart)
           {
             farRight = news_window_width / 2.0;

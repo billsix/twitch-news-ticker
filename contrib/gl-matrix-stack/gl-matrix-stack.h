@@ -137,8 +137,8 @@ mat4_ortho(float left,
            float right,
            float bottom,
            float top,
-           float near,
-           float far);
+           float nearZ,
+           float farZ);
 
 /*
  *
@@ -524,14 +524,14 @@ mat4_perspective(float fovy,
  */
 
 void
-mat4_ortho(float left, float right, float back, float top, float near, float far){
+mat4_ortho(float left, float right, float back, float top, float nearZ, float farZ){
   const float dx = right - left;
   const float dy = top - back;
-  const float dz = far - near;
+  const float dz = farZ - nearZ;
 
   const float rx = -(right + left) / (right - left) ;
   const float ry = -(top + back) / (top - back);
-  const float rz = -(far + near) / (far - near);
+  const float rz = -(farZ + nearZ) / (farZ - nearZ);
 
 #define M(row, column) projection_matrix->m[((column-1)*4)+row-1]
 
