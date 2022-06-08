@@ -33,7 +33,7 @@ static GLuint textureLoc;
 GLFWwindow * news_window_create()
 {
 
-  const GLFWmonitor * monitor =  glfwGetPrimaryMonitor();
+  GLFWmonitor * monitor =  glfwGetPrimaryMonitor();
   const GLFWvidmode* mode = glfwGetVideoMode(monitor);
 
   glfwWindowHint(GLFW_RED_BITS, mode->redBits);
@@ -451,6 +451,14 @@ void news_window_draw()
       glEnable(GL_BLEND);
       glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
 
+
+
+      // junk code
+      {
+        RenderText(matr, fontVAO, fontVBO, main_comment, -900.0, -20.0, 1.0, 0.0, 0.0, 0.0);
+      }
+
+
       // junk code
       {
         if (restart)
@@ -458,8 +466,8 @@ void news_window_draw()
             farRight = news_window_width / 2.0;
             restart = false;
           }
-        farRight-= 3;
-        RenderText(matr, fontVAO, fontVBO, "PILLOW GOT DEMONED", farRight, -20.0, 1.0, 0.0, 0.0, 0.0);
+        farRight-= 8;
+        RenderText(matr, fontVAO, fontVBO, "Queshon: HAHA MRPILLOWFORT MORE LIKE MRPILLOWDEMONED", farRight, -100.0, 1.0, 1.0, 1.0, 1.0);
       }
       glEnable(GL_DEPTH_TEST);
 

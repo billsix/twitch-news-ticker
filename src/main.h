@@ -33,5 +33,8 @@ void initGL();
 
 void drawScene();
 
+#define MAIN_COMMENT_CAPACITY 70
+extern char main_comment[MAIN_COMMENT_CAPACITY];
+
 END_C_DECLS
 #endif
