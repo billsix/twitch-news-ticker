@@ -13,7 +13,6 @@
 
 #include "gl-matrix-stack.h"
 
-
 #include "news_window.h"
 
 static GLFWwindow *news_window;
@@ -28,13 +27,13 @@ static GLuint textureID;
 
 static GLuint textureLoc;
 
+GLFWwindow *news_window_create() {
 
+  // GLFWmonitor *monitor = glfwGetPrimaryMonitor();
 
-GLFWwindow * news_window_create()
-{
-
-  GLFWmonitor * monitor =  glfwGetPrimaryMonitor();
-  const GLFWvidmode* mode = glfwGetVideoMode(monitor);
+  int count;
+  GLFWmonitor **monitors = glfwGetMonitors(&count);
+  const GLFWvidmode *mode = glfwGetVideoMode(monitors[1]);
 
   glfwWindowHint(GLFW_RED_BITS, mode->redBits);
   glfwWindowHint(GLFW_GREEN_BITS, mode->greenBits);
@@ -44,18 +43,17 @@ GLFWwindow * news_window_create()
   // needed so that a click doesn't make the window minimized
   glfwWindowHint(GLFW_AUTO_ICONIFY, GL_FALSE);
 
-  return (news_window = glfwCreateWindow(mode->width, mode->height, "My Title", monitor, NULL));
+  return (news_window = glfwCreateWindow(mode->width, mode->height, "My Title",
+                                         monitors[1], NULL));
 }
 
 bool news_window_should_close() { return glfwWindowShouldClose(news_window); }
 
-void news_window_set_viewport()
-{
-    int width = 0, height = 0;
-    glfwGetFramebufferSize(news_window, &width, &height);
-    glViewport(0, 0, width, height);
+void news_window_set_viewport() {
+  int width = 0, height = 0;
+  glfwGetFramebufferSize(news_window, &width, &height);
+  glViewport(0, 0, width, height);
 }
-
 
 // for font loading
 struct character {
@@ -70,56 +68,53 @@ struct character characters[128];
 static GLuint funometerProgramID;
 static GLuint fontProgramID;
 
-
-static  void RenderText(const struct mat4_t *const matr, GLuint vao, GLuint vbo, char * text, float x, float y, float scale, float r, float g, float b)
-  {
-    // activate corresponding render state
+static void RenderText(const struct mat4_t *const matr, GLuint vao, GLuint vbo,
+                       char *text, float x, float y, float scale, float r,
+                       float g, float b) {
+  // activate corresponding render state
   glUseProgram(fontProgramID);
-  glUniform3f(glGetUniformLocation(fontProgramID, "textColor"), r,g,b);
-  glUniformMatrix4fv(glGetUniformLocation(fontProgramID, "projection"), 1, GL_FALSE, matr->m);
+  glUniform3f(glGetUniformLocation(fontProgramID, "textColor"), r, g, b);
+  glUniformMatrix4fv(glGetUniformLocation(fontProgramID, "projection"), 1,
+                     GL_FALSE, matr->m);
 
   glActiveTexture(GL_TEXTURE0);
   glBindVertexArray(vao);
 
-  for (int i = 0; ; i++)
-    {
-      if (text[i] == 0)
-        break;
-      struct character ch = characters[text[i]];
+  for (int i = 0;; i++) {
+    if (text[i] == 0)
+      break;
+    struct character ch = characters[text[i]];
 
-      float xpos = x + ch.Bearing[0] * scale;
-      float ypos = y - (ch.Size[1] - ch.Bearing[1]) * scale;
+    float xpos = x + ch.Bearing[0] * scale;
+    float ypos = y - (ch.Size[1] - ch.Bearing[1]) * scale;
 
-      float w = ch.Size[0] * scale;
-      float h = ch.Size[1] * scale;
-      // update VBO for each character
-      float vertices[6][4] = {
-        { xpos,     ypos + h,   0.0f, 0.0f },
-        { xpos,     ypos,       0.0f, 1.0f },
-        { xpos + w, ypos,       1.0f, 1.0f },
+    float w = ch.Size[0] * scale;
+    float h = ch.Size[1] * scale;
+    // update VBO for each character
+    float vertices[6][4] = {
+        {xpos, ypos + h, 0.0f, 0.0f},    {xpos, ypos, 0.0f, 1.0f},
+        {xpos + w, ypos, 1.0f, 1.0f},
 
-        { xpos,     ypos + h,   0.0f, 0.0f },
-        { xpos + w, ypos,       1.0f, 1.0f },
-        { xpos + w, ypos + h,   1.0f, 0.0f }
-      };
-      // render glyph texture over quad
-      glBindTexture(GL_TEXTURE_2D, ch.TextureID);
-      // update content of VBO memory
-      glBindBuffer(GL_ARRAY_BUFFER, vbo);
-      glBufferSubData(GL_ARRAY_BUFFER, 0, sizeof(vertices), vertices);
-      glBindBuffer(GL_ARRAY_BUFFER, 0);
-      // render quad
-      glDrawArrays(GL_TRIANGLES, 0, 6);
-      // now advance cursors for next glyph (note that advance is number of 1/64 pixels)
-      x += (ch.Advance >> 6) * scale; // bitshift by 6 to get value in pixels (2^6 = 64)
-    }
+        {xpos, ypos + h, 0.0f, 0.0f},    {xpos + w, ypos, 1.0f, 1.0f},
+        {xpos + w, ypos + h, 1.0f, 0.0f}};
+    // render glyph texture over quad
+    glBindTexture(GL_TEXTURE_2D, ch.TextureID);
+    // update content of VBO memory
+    glBindBuffer(GL_ARRAY_BUFFER, vbo);
+    glBufferSubData(GL_ARRAY_BUFFER, 0, sizeof(vertices), vertices);
+    glBindBuffer(GL_ARRAY_BUFFER, 0);
+    // render quad
+    glDrawArrays(GL_TRIANGLES, 0, 6);
+    // now advance cursors for next glyph (note that advance is number of 1/64
+    // pixels)
+    x += (ch.Advance >> 6) *
+         scale; // bitshift by 6 to get value in pixels (2^6 = 64)
+  }
   glBindVertexArray(0);
   glBindTexture(GL_TEXTURE_2D, 0);
 }
 
-
-void news_window_draw()
-{
+void news_window_draw() {
   /* Make the window's context current */
   glfwMakeContextCurrent(news_window);
 
@@ -138,7 +133,6 @@ void news_window_draw()
 
   static GLuint fontVAO;
   static GLuint fontVBO;
-
 
   if (firstExecution) {
     // load font
@@ -162,61 +156,46 @@ void news_window_draw()
         exit(1);
       }
 
-
       {
-        glPixelStorei(GL_UNPACK_ALIGNMENT, 1); // disable byte-alignment restriction
+        glPixelStorei(GL_UNPACK_ALIGNMENT,
+                      1); // disable byte-alignment restriction
 
-        for (unsigned char c = 0; c < 128; c++)
-          {
-            // load character glyph
-              if (FT_Load_Char(face, c, FT_LOAD_RENDER))
-                {
-                  printf("ERROR::FREETYTPE: Failed to load Glyph\n");
-                  continue;
-                }
-              // generate texture
-              unsigned int texture;
-              glGenTextures(1, &texture);
-              glBindTexture(GL_TEXTURE_2D, texture);
-              glTexImage2D(
-                           GL_TEXTURE_2D,
-                           0,
-                           GL_RED,
-                           face->glyph->bitmap.width,
-                           face->glyph->bitmap.rows,
-                           0,
-                           GL_RED,
-                           GL_UNSIGNED_BYTE,
-                           face->glyph->bitmap.buffer
-                           );
-              // set texture options
-              glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);
-              glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
-              glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
-              glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
-              // now store character for later use
-
-              struct character character;
-              {
-                character.TextureID = texture;
-                character.Size[0] = face->glyph->bitmap.width;
-                character.Size[1] = face->glyph->bitmap.rows;
-                character.Bearing[0] = face->glyph->bitmap_left;
-                character.Bearing[1] =  face->glyph->bitmap_top;
-                character.Advance = face->glyph->advance.x;
-              }
-
-              characters[c] = character;
+        for (unsigned char c = 0; c < 128; c++) {
+          // load character glyph
+          if (FT_Load_Char(face, c, FT_LOAD_RENDER)) {
+            printf("ERROR::FREETYTPE: Failed to load Glyph\n");
+            continue;
           }
+          // generate texture
+          unsigned int texture;
+          glGenTextures(1, &texture);
+          glBindTexture(GL_TEXTURE_2D, texture);
+          glTexImage2D(GL_TEXTURE_2D, 0, GL_RED, face->glyph->bitmap.width,
+                       face->glyph->bitmap.rows, 0, GL_RED, GL_UNSIGNED_BYTE,
+                       face->glyph->bitmap.buffer);
+          // set texture options
+          glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);
+          glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
+          glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
+          glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
+          // now store character for later use
+
+          struct character character;
+          {
+            character.TextureID = texture;
+            character.Size[0] = face->glyph->bitmap.width;
+            character.Size[1] = face->glyph->bitmap.rows;
+            character.Bearing[0] = face->glyph->bitmap_left;
+            character.Bearing[1] = face->glyph->bitmap_top;
+            character.Advance = face->glyph->advance.x;
+          }
+
+          characters[c] = character;
+        }
       }
-
-
-
-
 
       FT_Done_Face(face);
       FT_Done_FreeType(ft);
-
 
       // font VAO/VBO
       {
@@ -224,13 +203,13 @@ void news_window_draw()
         glGenBuffers(1, &fontVBO);
         glBindVertexArray(fontVAO);
         glBindBuffer(GL_ARRAY_BUFFER, fontVBO);
-        glBufferData(GL_ARRAY_BUFFER, sizeof(float) * 6 * 4, NULL, GL_DYNAMIC_DRAW);
+        glBufferData(GL_ARRAY_BUFFER, sizeof(float) * 6 * 4, NULL,
+                     GL_DYNAMIC_DRAW);
         glEnableVertexAttribArray(0);
         glVertexAttribPointer(0, 4, GL_FLOAT, GL_FALSE, 4 * sizeof(float), 0);
         glBindBuffer(GL_ARRAY_BUFFER, 0);
         glBindVertexArray(0);
       }
-
     }
 
     // load textures
@@ -319,10 +298,10 @@ void news_window_draw()
       // for the window
       {
         GLuint vertexShaderID =
-          compile_shader(GL_VERTEX_SHADER, SHADER_DIR "funometer.vert");
+            compile_shader(GL_VERTEX_SHADER, SHADER_DIR "funometer.vert");
 
         GLuint fragmentShaderID =
-          compile_shader(GL_FRAGMENT_SHADER, SHADER_DIR "funometer.frag");
+            compile_shader(GL_FRAGMENT_SHADER, SHADER_DIR "funometer.frag");
 
         funometerProgramID = link_shaders(vertexShaderID, fragmentShaderID);
         GL_DEBUG_ASSERT();
@@ -330,7 +309,7 @@ void news_window_draw()
         mvpMatrixLoc = glGetUniformLocation(funometerProgramID, "mvpMatrix");
         GL_DEBUG_ASSERT();
         textureLoc =
-          glGetUniformLocation(funometerProgramID, "breakingNewsTexture");
+            glGetUniformLocation(funometerProgramID, "breakingNewsTexture");
 
         // clean up
         glDeleteShader(vertexShaderID);
@@ -341,21 +320,19 @@ void news_window_draw()
       // for the fonts
       {
         GLuint vertexShaderID =
-          compile_shader(GL_VERTEX_SHADER, SHADER_DIR "font.vert");
+            compile_shader(GL_VERTEX_SHADER, SHADER_DIR "font.vert");
 
         GLuint fragmentShaderID =
-          compile_shader(GL_FRAGMENT_SHADER, SHADER_DIR "font.frag");
+            compile_shader(GL_FRAGMENT_SHADER, SHADER_DIR "font.frag");
 
         fontProgramID = link_shaders(vertexShaderID, fragmentShaderID);
         GL_DEBUG_ASSERT();
-
 
         // clean up
         glDeleteShader(vertexShaderID);
         GL_DEBUG_ASSERT();
         glDeleteShader(fragmentShaderID);
         GL_DEBUG_ASSERT();
-
       }
     }
 
@@ -420,15 +397,16 @@ void news_window_draw()
       // Draw the triangles !
       glDrawArrays(GL_TRIANGLES, 0, numVertices);
       GL_DEBUG_ASSERT();
-    glUseProgram(0);
-    glBindVertexArray(0);
+      glUseProgram(0);
+      glBindVertexArray(0);
     }
     // render text
     {
       // projection
       {
         enum matrixType m = PROJECTION;
-        mat4_ortho(0.0, news_window_width, 0.0, news_window_height, -100.0, 100.0);
+        mat4_ortho(0.0, news_window_width, 0.0, news_window_height, -100.0,
+                   100.0);
       }
       // view
       {
@@ -444,36 +422,31 @@ void news_window_draw()
       vec3_t t[] = {0.0, -430, 0.0};
       mat4_translate(MODEL, t);
 
-
       const struct mat4_t *const matr = mat4_get_matrix(MODELVIEWPROJECTION);
 
       glDisable(GL_DEPTH_TEST);
       glEnable(GL_BLEND);
       glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
 
-
-
       // junk code
       {
-        RenderText(matr, fontVAO, fontVBO, main_comment, -900.0, -20.0, 1.0, 0.0, 0.0, 0.0);
+        RenderText(matr, fontVAO, fontVBO, main_comment, -900.0, -20.0, 1.0,
+                   0.0, 0.0, 0.0);
       }
 
-
       // junk code
       {
-        if (restart)
-          {
-            farRight = news_window_width / 2.0;
-            restart = false;
-          }
-        farRight-= 8;
-        RenderText(matr, fontVAO, fontVBO, "Queshon: HAHA MRPILLOWFORT MORE LIKE MRPILLOWDEMONED", farRight, -100.0, 1.0, 1.0, 1.0, 1.0);
+        if (restart) {
+          farRight = news_window_width / 2.0;
+          restart = false;
+        }
+        farRight -= 8;
+        RenderText(matr, fontVAO, fontVBO,
+                   "Queshon: HAHA MRPILLOWFORT MORE LIKE MRPILLOWDEMONED",
+                   farRight, -100.0, 1.0, 1.0, 1.0, 1.0);
       }
       glEnable(GL_DEPTH_TEST);
-
     }
-
   }
   glfwSwapBuffers(news_window);
-
 }

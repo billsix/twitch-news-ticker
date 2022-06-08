@@ -9,6 +9,7 @@
 #include <stdbool.h>
 
 #include <stdio.h>
+#include <string.h>
 
 #define NK_IMPLEMENTATION
 #define NK_GLFW_GL3_IMPLEMENTATION
@@ -35,15 +36,12 @@
 struct nk_glfw glfw = {0};
 GLFWwindow *control_window;
 
-
 // show the nuklear GUIs or not.  pressing escape toggles
 // it
 bool guiEnable = true;
 static int funLevel = 0; // can go up to 10
 
-
 char main_comment[MAIN_COMMENT_CAPACITY] = "";
-
 
 static void error_callback(int error, const char *description) {
   fprintf(stderr, "Error: %s\n", description);
@@ -56,9 +54,6 @@ static void key_callback(GLFWwindow *window, int key, int scancode, int action,
     guiEnable = !guiEnable;
   }
 }
-
-
-
 
 #ifdef __cplusplus
 extern "C" {
@@ -117,7 +112,6 @@ int main(int argc, char **argv) {
     GL_DEBUG_ASSERT();
     glDepthFunc(GL_LEQUAL);
     GL_DEBUG_ASSERT();
-
 
     glEnable(GL_BLEND);
     glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
@@ -182,7 +176,7 @@ int main(int argc, char **argv) {
       nk_glfw3_new_frame(&glfw);
 
       /* GUI */
-      if (nk_begin(ctx, "Demo", nk_rect(50, 50, 230, 400),
+      if (nk_begin(ctx, "Demo", nk_rect(50, 50, 1000, 1000),
                    NK_WINDOW_BORDER | NK_WINDOW_MOVABLE | NK_WINDOW_SCALABLE |
                        NK_WINDOW_MINIMIZABLE | NK_WINDOW_TITLE)) {
         enum { EASY, HARD };
@@ -192,25 +186,99 @@ int main(int argc, char **argv) {
         nk_layout_row_static(ctx, 30, 300, 1);
         nk_label(ctx, "Default:", NK_TEXT_LEFT);
 
-
-
         static char buffered_text[MAIN_COMMENT_CAPACITY] = "";
         static int buffered_text_len = 0;
-        nk_edit_string(ctx, NK_EDIT_SIMPLE, buffered_text, &buffered_text_len, MAIN_COMMENT_CAPACITY, nk_filter_default);
+        nk_edit_string(ctx, NK_EDIT_SIMPLE, buffered_text, &buffered_text_len,
+                       MAIN_COMMENT_CAPACITY, nk_filter_default);
 
-        if (nk_button_label(ctx, "Set!"))
-          {
-            buffered_text[buffered_text_len] = 0;
-            for(int i = buffered_text_len+1; i < MAIN_COMMENT_CAPACITY; i++)
-              {
-                buffered_text[i] = 0;
-              }
-            strncpy(main_comment, buffered_text, MAIN_COMMENT_CAPACITY);
+        bool cleared = false;
+        if (nk_button_label(ctx, "Clear")) {
+          for (int i = 0; i < MAIN_COMMENT_CAPACITY; i++) {
+            // TODO should use memset instead
+            buffered_text[i] = 0;
+            buffered_text_len = 0;
+            cleared = true;
+          }
+        }
+
+        {
+          // predefined options
+          static int positive_quote_index = 0;
+          const char *positive_quotes[] = {
+              "YOU ALWAYS PASS FAILURE ON THE WAY TO SUCCESS",
+              "Only surround yourself with people who will lift you higher",
+              "Winning means you're doing better than you've done before",
+              "IT ALWAYS SEEMS IMPOSSIBLE UNTIL IT'S DONE",
+              "Positive thinking will let you do everything better",
+              "Attitude is a little thing that makes a big difference",
+              "The only time you fail is when you fall down and stay down",
+              "Positive anything is better than negative nothing",
+              "If you stay positive, good people will be drawn to you",
+              "You are never too old to set another goal",
+              "TOUGH TIMES NEVER LAST BUT TOUGH PEOPLE DO",
+              "It's not whether you get knocked down, but whether you get up",
+              "If you want a rainbow, you gotta put up with the rain",
+              "Success is the sum of small efforts repeated daily",
+              "Live life to the fullest and focus on the positive",
+              "SUCCESS IS MY ONLY MOTHERF OPTION, FAILURE'S NOT"};
+
+          /* default combobox */
+          nk_layout_row_static(ctx, 25, 200, 2);
+          int old_index = positive_quote_index;
+          positive_quote_index =
+              nk_combo(ctx, positive_quotes,
+                       sizeof(positive_quotes) / sizeof(positive_quotes[0]),
+                       positive_quote_index, 25, nk_vec2(500, 200));
+          if (old_index != positive_quote_index) {
+            strncpy(buffered_text, positive_quotes[positive_quote_index],
+                    strlen(positive_quotes[positive_quote_index]) + 1);
+            buffered_text_len = strlen(positive_quotes[positive_quote_index]);
+            cleared = true;
+          }
+        }
+
+        {
+          static int predefined_phrases_index = 0;
+          const char *predefined_phrases[] = {
+              "Ronald McDonald escaped the asylum and is on Bath Salts",
+              "TALENT VS LOW IQ CHARGE CHARACTER",
+              "I CAN BEAT PUNKDAGOD BUT NOT PINKDAGOD",
+              "I AM VERY GOOD AT VIDEO GAMES",
+              "MOST PEOPLE ARE KIND MOST OF THE TIME",
+              "YOU JUST GOT DEMONED, SUCKA!",
+              "I'M HERE TO DEMON AND CHEW BUBBLE GUM",
+              "YOU JUST GOT MCGEED",
+              "I PLAYED BRIAN_F AND IT WAS BAD ON HIS END",
+              "YOU PLAYED WELL BUT I GOT ROBBED",
+              "I'M FUNDAMENTALLY A BETTER PERSON THAN YOU ARE",
+              "PRINCECHITCHIT IS AFRAID OF PINKMEGAMANRYU",
+              "Of all my numerous talents, my best quality is my humility"};
+
+          /* default combobox */
+          int old_index = predefined_phrases_index;
+          predefined_phrases_index = nk_combo(
+              ctx, predefined_phrases,
+              sizeof(predefined_phrases) / sizeof(predefined_phrases[0]),
+              predefined_phrases_index, 25, nk_vec2(500, 200));
+
+          if (old_index != predefined_phrases_index) {
+            strncpy(buffered_text, predefined_phrases[predefined_phrases_index],
+                    strlen(predefined_phrases[predefined_phrases_index]) + 1);
+            buffered_text_len =
+                strlen(predefined_phrases[predefined_phrases_index]);
+            cleared = true;
           }
 
-
-
-        //restart = true;
+          if (nk_button_label(ctx, "Set!") || cleared) {
+            buffered_text[buffered_text_len] = 0;
+            for (int i = buffered_text_len + 1; i < MAIN_COMMENT_CAPACITY;
+                 i++) {
+              buffered_text[i] = 0;
+            }
+            strncpy(main_comment, buffered_text, MAIN_COMMENT_CAPACITY);
+          }
+        }
+        // restart = true;
       }
       nk_end(ctx);
 
@@ -297,8 +365,6 @@ int main(int argc, char **argv) {
   glfwTerminate();
   return 0;
 }
-
-
 
 #ifdef __cplusplus
 }
