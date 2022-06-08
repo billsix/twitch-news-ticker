@@ -4,12 +4,13 @@ set(twitch-news-ticker_headers
     ./common.h
     ./main.h
     ./shader.h
-
+    ./news_window.h
 )
 
 set(twitch-news-ticker_source
     ./main.c
     ./shader.c
+    ./news_window.c
 )
 
 # TODO - make the fetching and building of these static libraries
